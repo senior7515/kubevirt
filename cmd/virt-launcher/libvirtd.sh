@@ -43,7 +43,11 @@ if [[ -n "$LIBVIRTD_DEFAULT_NETWORK_DEVICE" ]]; then
   </forward>
 </network>
 EOX
-    ln -s -f /etc/libvirt/qemu/networks/default.xml /etc/libvirt/qemu/networks/autostart/default.xml
+    for network_file in /etc/libvirt/qemu/networks/*xml; do
+        echo "Linking network file: ${network_file}"
+        network_file=$(basename ${network_file})
+        ln -s -f "/etc/libvirt/qemu/networks/${network_file}" "/etc/libvirt/qemu/networks/autostart/${network_file}"
+    done
 fi
 
 echo "cgroup_controllers = [ ]" >>/etc/libvirt/qemu.conf
