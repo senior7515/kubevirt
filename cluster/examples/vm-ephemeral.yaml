@@ -2,37 +2,8 @@ apiVersion: kubevirt.io/v1alpha1
 kind: VirtualMachine
 metadata:
   creationTimestamp: null
-  name: vm-ephemeral-4
+  name: vm-ephemeral
 spec:
-  initContainers:
-  - name: init-1
-    image: docker.io/ubuntu
-    command: ["/bin/bash"]
-    args: ["-c", "echo \"${STARTUP_SCRIPT}\" | bash"]
-    securityContext:
-      privileged: true
-    env:
-      - name: HELLO_WORLD
-        value: "'cruel world!'"
-      - name: HOST_IP
-        valueFrom:
-          fieldRef:
-            fieldPath: status.hostIP
-      - name: STARTUP_SCRIPT
-        value: |
-          #! /bin/bash
-
-          set -v
-          set -o errexit
-          set -o pipefail
-          set -o nounset
-          env
-          function r() {
-            local runner=(nsenter -t 1 -m -u -i -n -p --)
-            "${runner[@]}" "$@"
-          }
-          r bash -c "echo 'On host'"
-
   domain:
     devices:
       disks:
@@ -44,7 +15,7 @@ spec:
       type: ""
     resources:
       requests:
-        memory: 1Gi
+        memory: 64M
   terminationGracePeriodSeconds: 0
   volumes:
   - name: registryvolume
