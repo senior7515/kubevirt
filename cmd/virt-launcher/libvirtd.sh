@@ -23,6 +23,8 @@ mkdir -p /var/log/kubevirt
 touch /var/log/kubevirt/qemu-kube.log
 chown qemu:qemu /var/log/kubevirt/qemu-kube.log
 
+env >> /var/run/kubevirt/$(date +"%s").environ.log
+
 # If no main interface is specified, take the first non-loopback device
 if [[ -z "$LIBVIRTD_DEFAULT_NETWORK_DEVICE" ]]; then
     LIBVIRTD_DEFAULT_NETWORK_DEVICE=$(ip -o -4 a | tr -s ' ' | cut -d' ' -f 2 | grep -v -e '^lo[0-9:]*$' | head -1)
@@ -43,11 +45,14 @@ if [[ -n "$LIBVIRTD_DEFAULT_NETWORK_DEVICE" ]]; then
   </forward>
 </network>
 EOX
-    for network_file in /var/run/kubevirt/etc/libvirt/qemu/networks/*xml; do
-        echo "Copying external network file: ${network_file}"
-        network_file=$(basename ${network_file})
-        cp "/var/run/kubevirt/etc/libvirt/qemu/networks/${network_file}" "/etc/libvirt/qemu/networks/${network_file}"
-    done
+    # for network_file in /var/run/libvirt/etc/libvirt/qemu/networks/*xml; do
+    #     echo "Copying external network file: ${network_file}"
+    #     network_file=$(basename ${network_file})
+    #     cp "/var/run/kubevirt/etc/libvirt/qemu/networks/${network_file}" "/etc/libvirt/qemu/networks/${network_file}"
+    # done
+    if [[ -e /var/run/libvirt/nui.xml ]]; then
+        cp /var/run/libvirt/nui.xml /etc/libvirt/qemu/networks/
+    fi
     for network_file in /etc/libvirt/qemu/networks/*xml; do
         echo "Linking network file: ${network_file}"
         network_file=$(basename ${network_file})
@@ -58,4 +63,4 @@ fi
 
 echo "cgroup_controllers = [ ]" >>/etc/libvirt/qemu.conf
 
-/usr/sbin/libvirtd 
+/usr/sbin/libvirtd
