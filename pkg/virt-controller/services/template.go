@@ -83,6 +83,7 @@ func (t *templateService) RenderLaunchManifest(vm *v1.VirtualMachine) (*k8sv1.Po
 	var privileged bool = true
 	var volumesMounts []k8sv1.VolumeMount
 	var imagePullSecrets []k8sv1.LocalObjectReference
+	var initContainers []k8sv1.Container
 
 	gracePeriodSeconds := v1.DefaultGracePeriodSeconds
 	if vm.Spec.TerminationGracePeriodSeconds != nil {
@@ -249,6 +250,16 @@ func (t *templateService) RenderLaunchManifest(vm *v1.VirtualMachine) (*k8sv1.Po
 		hostName = vm.Spec.Hostname
 	}
 
+	for _, initc := range vm.Spec.InitContainers {
+		initContainers = append(initContainers, *initc.DeepCopy())
+	}
+	for _, initc := range initContainers {
+		// TODO agallego ZOMG HACK XXX
+		// Need to scope down the volumes that we want exposed
+		// probably only /var/run/libvirt
+		initc.VolumeMounts = volumesMounts
+	}
+
 	// TODO use constants for podLabels
 	pod := k8sv1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
@@ -268,7 +279,7 @@ func (t *templateService) RenderLaunchManifest(vm *v1.VirtualMachine) (*k8sv1.Po
 			TerminationGracePeriodSeconds: &gracePeriodKillAfter,
 			RestartPolicy:                 k8sv1.RestartPolicyNever,
 			Containers:                    containers,
-			InitContainers:                vm.Spec.InitContainers,
+			InitContainers:                initContainers,
 			NodeSelector:                  nodeSelector,
 			Volumes:                       volumes,
 			ImagePullSecrets:              imagePullSecrets,
