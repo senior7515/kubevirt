@@ -98,6 +98,10 @@ func (t *templateService) RenderLaunchManifest(vm *v1.VirtualMachine) (*k8sv1.Po
 		Name:      "libvirt-runtime",
 		MountPath: "/var/run/libvirt",
 	})
+	volumesMounts = append(volumesMounts, k8sv1.VolumeMount{
+		Name:      "host-sys",
+		MountPath: "/sys",
+	})
 	for _, volume := range vm.Spec.Volumes {
 		volumeMount := k8sv1.VolumeMount{
 			Name:      volume.Name,
@@ -227,6 +231,14 @@ func (t *templateService) RenderLaunchManifest(vm *v1.VirtualMachine) (*k8sv1.Po
 			EmptyDir: &k8sv1.EmptyDirVolumeSource{},
 		},
 	})
+	volumes = append(volumes, k8sv1.Volume{
+		Name: "host-sys",
+		VolumeSource: k8sv1.VolumeSource{
+			HostPath: &k8sv1.HostPathVolumeSource{
+				Path: "/sys",
+			},
+		},
+	})
 
 	nodeSelector := map[string]string{}
 	for k, v := range vm.Spec.NodeSelector {
@@ -271,6 +283,7 @@ func (t *templateService) RenderLaunchManifest(vm *v1.VirtualMachine) (*k8sv1.Po
 			},
 		},
 		Spec: k8sv1.PodSpec{
+			HostPID:   true,
 			Hostname:  hostName,
 			Subdomain: vm.Spec.Subdomain,
 			SecurityContext: &k8sv1.PodSecurityContext{
