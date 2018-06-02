@@ -474,6 +474,8 @@ spec:
       hostPID: true
       containers:
         - name: virt-handler
+          securityContext:
+            privileged: true
           ports:
             - containerPort: 8185
               hostPort: 8185

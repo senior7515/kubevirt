@@ -83,6 +83,7 @@ func (t *templateService) RenderLaunchManifest(vm *v1.VirtualMachine) (*k8sv1.Po
 	var privileged bool = true
 	var volumesMounts []k8sv1.VolumeMount
 	var imagePullSecrets []k8sv1.LocalObjectReference
+	var initContainers []k8sv1.Container
 
 	gracePeriodSeconds := v1.DefaultGracePeriodSeconds
 	if vm.Spec.TerminationGracePeriodSeconds != nil {
@@ -96,6 +97,10 @@ func (t *templateService) RenderLaunchManifest(vm *v1.VirtualMachine) (*k8sv1.Po
 	volumesMounts = append(volumesMounts, k8sv1.VolumeMount{
 		Name:      "libvirt-runtime",
 		MountPath: "/var/run/libvirt",
+	})
+	volumesMounts = append(volumesMounts, k8sv1.VolumeMount{
+		Name:      "host-sys",
+		MountPath: "/sys",
 	})
 	for _, volume := range vm.Spec.Volumes {
 		volumeMount := k8sv1.VolumeMount{
@@ -226,6 +231,14 @@ func (t *templateService) RenderLaunchManifest(vm *v1.VirtualMachine) (*k8sv1.Po
 			EmptyDir: &k8sv1.EmptyDirVolumeSource{},
 		},
 	})
+	volumes = append(volumes, k8sv1.Volume{
+		Name: "host-sys",
+		VolumeSource: k8sv1.VolumeSource{
+			HostPath: &k8sv1.HostPathVolumeSource{
+				Path: "/sys",
+			},
+		},
+	})
 
 	nodeSelector := map[string]string{}
 	for k, v := range vm.Spec.NodeSelector {
@@ -249,6 +262,16 @@ func (t *templateService) RenderLaunchManifest(vm *v1.VirtualMachine) (*k8sv1.Po
 		hostName = vm.Spec.Hostname
 	}
 
+	for _, initc := range vm.Spec.InitContainers {
+		initContainers = append(initContainers, *initc.DeepCopy())
+	}
+	for _, initc := range initContainers {
+		// TODO agallego ZOMG HACK XXX
+		// Need to scope down the volumes that we want exposed
+		// probably only /var/run/libvirt
+		initc.VolumeMounts = volumesMounts
+	}
+
 	// TODO use constants for podLabels
 	pod := k8sv1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
@@ -260,6 +283,7 @@ func (t *templateService) RenderLaunchManifest(vm *v1.VirtualMachine) (*k8sv1.Po
 			},
 		},
 		Spec: k8sv1.PodSpec{
+			HostPID:   true,
 			Hostname:  hostName,
 			Subdomain: vm.Spec.Subdomain,
 			SecurityContext: &k8sv1.PodSecurityContext{
@@ -268,6 +292,7 @@ func (t *templateService) RenderLaunchManifest(vm *v1.VirtualMachine) (*k8sv1.Po
 			TerminationGracePeriodSeconds: &gracePeriodKillAfter,
 			RestartPolicy:                 k8sv1.RestartPolicyNever,
 			Containers:                    containers,
+			InitContainers:                initContainers,
 			NodeSelector:                  nodeSelector,
 			Volumes:                       volumes,
 			ImagePullSecrets:              imagePullSecrets,
