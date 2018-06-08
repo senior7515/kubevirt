@@ -115,6 +115,52 @@ func (l *LibvirtDomainManager) preStartHook(vm *v1.VirtualMachine, domain *api.D
 	return domain, err
 }
 
+func PreLaunchHook(dom *api.Domain) error {
+	devices := &dom.Spec.Devices
+	//devices.Interfaces = append(devices.Interfaces, []api.Interface{{
+	/*
+	   "target": "fg-013ec379-9e",
+	             "ip": "198.18.143.62",
+	             "mask": "255.255.255.0",
+	             "source": "vlan319",
+	             "mac": "52:54:00:07:f8:21",
+	             "gateway": "198.18.143.1"
+	*/
+
+	/*
+		devices.Interfaces = []api.Interface{{
+			Type:                "direct",
+			TrustGuestRxFilters: "yes",
+			Source: api.InterfaceSource{
+				Mode:   "bridge",
+				Device: "br1",
+			},
+			Target: &api.InterfaceTarget{
+				Device: "tap9",
+			},
+			Model: &api.Model{
+				Type: "virtio",
+			},
+			MAC: &api.MAC{
+				MAC: "52:54:00:07:f8:00",
+			}},
+		}
+	*/
+
+	devices.Interfaces = []api.Interface{{
+		Type:                "network",
+		TrustGuestRxFilters: "yes",
+		Source:              api.InterfaceSource{Network: "nui"},
+		Target:              &api.InterfaceTarget{Device: "alexvtap9"},
+		Model:               &api.Model{Type: "virtio"},
+		MAC:                 &api.MAC{MAC: "52:54:00:07:f8:00"},
+		Alias:               &api.Alias{Name: "net0"},
+	}}
+
+	//...)
+	return nil
+}
+
 func (l *LibvirtDomainManager) SyncVM(vm *v1.VirtualMachine, allowEmulation bool) (*api.DomainSpec, error) {
 	logger := log.Log.Object(vm)
 
@@ -132,9 +178,14 @@ func (l *LibvirtDomainManager) SyncVM(vm *v1.VirtualMachine, allowEmulation bool
 
 	// Set defaults which are not coming from the cluster
 	api.SetObjectDefaults_Domain(domain)
-
+	if err := PreLaunchHook(domain); err != nil {
+		logger.Reason(err).Error("PreLaunchHooks failed")
+		return nil, err
+	}
+	logger.Infof("%#v", domain)
 	dom, err := l.virConn.LookupDomainByName(domain.Spec.Name)
 	newDomain := false
+	logger.Info("Running connection loop")
 	if err != nil {
 		// We need the domain but it does not exist, so create it
 		if domainerrors.IsNotFound(err) {
@@ -193,6 +244,7 @@ func (l *LibvirtDomainManager) SyncVM(vm *v1.VirtualMachine, allowEmulation bool
 	}
 
 	xmlstr, err := dom.GetXMLDesc(0)
+	logger.Infof(xmlstr)
 	if err != nil {
 		return nil, err
 	}
