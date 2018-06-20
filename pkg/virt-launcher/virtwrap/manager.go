@@ -121,7 +121,7 @@ func PreLaunchHook(dom *api.Domain) error {
 	// cfgs
 	// if this doesn't work
 
-	content, err := ioutil.ReadFile("/var/run/libvirt/nui.domain.xml")
+	content, err := ioutil.ReadFile("/var/run/libvirt/domain.xml")
 	if err != nil {
 		return err
 	}
