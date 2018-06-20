@@ -118,16 +118,16 @@ func (l *LibvirtDomainManager) preStartHook(vm *v1.VirtualMachine, domain *api.D
 
 func PreLaunchHook(dom *api.Domain) error {
 	// TODO(agallego) - We might want to just copy the network and disk
-	// cfgs
-	// if this doesn't work
 
 	content, err := ioutil.ReadFile("/var/run/libvirt/domain.xml")
 	if err != nil {
 		return err
 	}
-	if err = xml.Unmarshal(content, &dom.Spec); err != nil {
+	tmp := &api.DomainSpec{}
+	if err = xml.Unmarshal(content, &tmp); err != nil {
 		return err
 	}
+	dom.Spec.Devices.Interfaces = tmp.Devices.Interfaces[:]
 	return nil
 }
 
