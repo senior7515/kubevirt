@@ -28,6 +28,7 @@ package virtwrap
 import (
 	"encoding/xml"
 	"fmt"
+	"io/ioutil"
 
 	"github.com/libvirt/libvirt-go"
 
@@ -116,48 +117,17 @@ func (l *LibvirtDomainManager) preStartHook(vm *v1.VirtualMachine, domain *api.D
 }
 
 func PreLaunchHook(dom *api.Domain) error {
-	devices := &dom.Spec.Devices
-	//devices.Interfaces = append(devices.Interfaces, []api.Interface{{
-	/*
-	   "target": "fg-013ec379-9e",
-	             "ip": "198.18.143.62",
-	             "mask": "255.255.255.0",
-	             "source": "vlan319",
-	             "mac": "52:54:00:07:f8:21",
-	             "gateway": "198.18.143.1"
-	*/
+	// TODO(agallego) - We might want to just copy the network and disk
+	// cfgs
+	// if this doesn't work
 
-	/*
-		devices.Interfaces = []api.Interface{{
-			Type:                "direct",
-			TrustGuestRxFilters: "yes",
-			Source: api.InterfaceSource{
-				Mode:   "bridge",
-				Device: "br1",
-			},
-			Target: &api.InterfaceTarget{
-				Device: "tap9",
-			},
-			Model: &api.Model{
-				Type: "virtio",
-			},
-			MAC: &api.MAC{
-				MAC: "52:54:00:07:f8:00",
-			}},
-		}
-	*/
-
-	devices.Interfaces = []api.Interface{{
-		Type:                "network",
-		TrustGuestRxFilters: "yes",
-		Source:              api.InterfaceSource{Network: "nui"},
-		Target:              &api.InterfaceTarget{Device: "alexvtap9"},
-		Model:               &api.Model{Type: "virtio"},
-		MAC:                 &api.MAC{MAC: "52:54:00:07:f8:00"},
-		Alias:               &api.Alias{Name: "net0"},
-	}}
-
-	//...)
+	content, err := ioutil.ReadFile("/var/run/libvirt/nui.domain.xml")
+	if err != nil {
+		return err
+	}
+	if err = xml.Unmarshal(content, &dom.Spec); err != nil {
+		return err
+	}
 	return nil
 }
 
