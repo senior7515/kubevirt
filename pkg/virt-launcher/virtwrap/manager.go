@@ -29,6 +29,7 @@ import (
 	"encoding/xml"
 	"fmt"
 	"io/ioutil"
+	"os"
 
 	"github.com/libvirt/libvirt-go"
 
@@ -117,9 +118,11 @@ func (l *LibvirtDomainManager) preStartHook(vm *v1.VirtualMachine, domain *api.D
 }
 
 func PreLaunchHook(dom *api.Domain) error {
-	// TODO(agallego) - We might want to just copy the network and disk
-
-	content, err := ioutil.ReadFile("/var/run/libvirt/domain.xml")
+	const kDomainFilePath = "/var/run/libvirt/domain.xml"
+	if _, err := os.Stat(kDomainFilePath); os.IsNotExist(err) {
+		return nil
+	}
+	content, err := ioutil.ReadFile(kDomainFilePath)
 	if err != nil {
 		return err
 	}
