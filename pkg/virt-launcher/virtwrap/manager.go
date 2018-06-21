@@ -28,6 +28,8 @@ package virtwrap
 import (
 	"encoding/xml"
 	"fmt"
+	"io/ioutil"
+	"os"
 
 	"github.com/libvirt/libvirt-go"
 
@@ -115,6 +117,23 @@ func (l *LibvirtDomainManager) preStartHook(vm *v1.VirtualMachine, domain *api.D
 	return domain, err
 }
 
+func PreLaunchHook(dom *api.Domain) error {
+	const kDomainFilePath = "/var/run/libvirt/domain.xml"
+	if _, err := os.Stat(kDomainFilePath); os.IsNotExist(err) {
+		return nil
+	}
+	content, err := ioutil.ReadFile(kDomainFilePath)
+	if err != nil {
+		return err
+	}
+	tmp := &api.DomainSpec{}
+	if err = xml.Unmarshal(content, &tmp); err != nil {
+		return err
+	}
+	dom.Spec.Devices.Interfaces = tmp.Devices.Interfaces[:]
+	return nil
+}
+
 func (l *LibvirtDomainManager) SyncVM(vm *v1.VirtualMachine, allowEmulation bool) (*api.DomainSpec, error) {
 	logger := log.Log.Object(vm)
 
@@ -132,9 +151,14 @@ func (l *LibvirtDomainManager) SyncVM(vm *v1.VirtualMachine, allowEmulation bool
 
 	// Set defaults which are not coming from the cluster
 	api.SetObjectDefaults_Domain(domain)
-
+	if err := PreLaunchHook(domain); err != nil {
+		logger.Reason(err).Error("PreLaunchHooks failed")
+		return nil, err
+	}
+	logger.Infof("%#v", domain)
 	dom, err := l.virConn.LookupDomainByName(domain.Spec.Name)
 	newDomain := false
+	logger.Info("Running connection loop")
 	if err != nil {
 		// We need the domain but it does not exist, so create it
 		if domainerrors.IsNotFound(err) {
@@ -193,6 +217,7 @@ func (l *LibvirtDomainManager) SyncVM(vm *v1.VirtualMachine, allowEmulation bool
 	}
 
 	xmlstr, err := dom.GetXMLDesc(0)
+	logger.Infof(xmlstr)
 	if err != nil {
 		return nil, err
 	}
